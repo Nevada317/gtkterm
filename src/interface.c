@@ -725,7 +725,7 @@ gboolean Envoie_car(GtkWidget *widget, GdkEventKey *event, gpointer pointer)
 
 void help_about_callback(GtkAction *action, gpointer data)
 {
-	gchar *authors[] = {"Julien Schimtt", "Zach Davis", NULL};
+	gchar *authors[] = {"Julien Schimtt", "Zach Davis", "Taktakishvili Vladimir", NULL};
 	GError *error = NULL;
 	GdkPixbuf *logo = NULL;
 
@@ -736,10 +736,10 @@ void help_about_callback(GtkAction *action, gpointer data)
 	                      "logo", logo,
 	                      "version", VERSION,
 	                      "comments", _("GTKTerm is a simple GTK+ terminal used to communicate with the serial port."),
-	                      "copyright", "Copyright © Julien Schimtt",
+						  "copyright", "Copyright © authors",
 	                      "authors", authors,
-	                      "website", "https://github.com/Jeija/gtkterm",
-	                      "website-label", "https://github.com/Jeija/gtkterm",
+	                      "website", "https://github.com/Nevada317/gtkterm",
+                          "website-label", "https://github.com/Nevada317/gtkterm",
 	                      "license-type", GTK_LICENSE_LGPL_3_0,
 	                      NULL);
 }
