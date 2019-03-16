@@ -102,6 +102,7 @@ static gint bytes_per_line = 16;
 static gchar blank_data[128];
 static guint total_bytes;
 static gboolean show_index = FALSE;
+static gboolean show_ascii = TRUE;
 
 /* Local functions prototype */
 void signals_send_break_callback(GtkAction *action, gpointer data);
@@ -117,6 +118,7 @@ void CR_LF_auto_toggled_callback(GtkAction *action, gpointer data);
 void view_radio_callback(GtkAction *action, gpointer data);
 void view_hexadecimal_chars_radio_callback(GtkAction* action, gpointer data);
 void view_index_toggled_callback(GtkAction *action, gpointer data);
+void view_ascii_toggled_callback(GtkAction *action, gpointer data);
 void view_send_hex_toggled_callback(GtkAction *action, gpointer data);
 void initialize_hexadecimal_display(void);
 gboolean Send_Hexadecimal(GtkWidget *, GdkEventKey *, gpointer);
@@ -186,6 +188,7 @@ const GtkToggleActionEntry menu_toggle_entries[] =
 
 	/* View Menu */
 	{"ViewIndex", NULL, N_("Show _index"), NULL, NULL, G_CALLBACK(view_index_toggled_callback), FALSE},
+	{"ViewAsciiCode", NULL, N_("Show ASCII cha_racters"), NULL, NULL, G_CALLBACK(view_ascii_toggled_callback), TRUE},
 	{"ViewSendHexData", NULL, N_("_Send hexadecimal data"), NULL, NULL, G_CALLBACK(view_send_hex_toggled_callback), FALSE}
 };
 
@@ -255,6 +258,7 @@ static const char *ui_description =
     "        <menuitem action='ViewHex32'/>"
     "      </menu>"
     "      <menuitem action='ViewIndex'/>"
+    "      <menuitem action='ViewAsciiCode'/>"
     "      <separator/>"
     "      <menuitem action='ViewSendHexData'/>"
     "    </menu>"
@@ -289,6 +293,12 @@ void view_index_toggled_callback(GtkAction *action, gpointer data)
 	set_view(HEXADECIMAL_VIEW);
 }
 
+void view_ascii_toggled_callback(GtkAction *action, gpointer data)
+{
+	show_ascii = gtk_toggle_action_get_active(GTK_TOGGLE_ACTION(action));
+	set_view(HEXADECIMAL_VIEW);
+}
+
 void view_hexadecimal_chars_radio_callback(GtkAction* action, gpointer data)
 {
 	gint current_value;
@@ -302,9 +312,11 @@ void set_view(guint type)
 {
 	GtkAction *action;
 	GtkAction *show_index_action;
+	GtkAction *show_ascii_action;
 	GtkAction *hex_chars_action;
 
 	show_index_action = gtk_action_group_get_action(action_group, "ViewIndex");
+	show_ascii_action = gtk_action_group_get_action(action_group, "ViewAsciiCode");
 	hex_chars_action = gtk_action_group_get_action(action_group, "ViewHexadecimalChars");
 
 	clear_display();
@@ -315,6 +327,7 @@ void set_view(guint type)
 		action = gtk_action_group_get_action(action_group, "ViewASCII");
 		gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(action), TRUE);
 		gtk_action_set_sensitive(show_index_action, FALSE);
+		gtk_action_set_sensitive(show_ascii_action, FALSE);
 		gtk_action_set_sensitive(hex_chars_action, FALSE);
 		total_bytes = 0;
 		set_display_func(put_text);
@@ -323,6 +336,7 @@ void set_view(guint type)
 		action = gtk_action_group_get_action(action_group, "ViewHexadecimal");
 		gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(action), TRUE);
 		gtk_action_set_sensitive(show_index_action, TRUE);
+		gtk_action_set_sensitive(show_ascii_action, TRUE);
 		gtk_action_set_sensitive(hex_chars_action, TRUE);
 		total_bytes = 0;
 		set_display_func(put_hexadecimal);
@@ -588,10 +602,12 @@ void initialize_hexadecimal_display(void)
 
 void put_hexadecimal(gchar *string, guint size)
 {
+// 	printf("{\n"); fflush(stdout);
+
 	static gchar data[128];
 	static gchar data_byte[6];
 	static guint bytes;
-	glong column, row;
+	glong volatile column, row, lastrow;
 
 	gint i = 0;
 
@@ -601,28 +617,34 @@ void put_hexadecimal(gchar *string, guint size)
 	while(i < size)
 	{
 		while(gtk_events_pending()) gtk_main_iteration();
+
+		gtk_main_iteration_do(FALSE); // Anyway we do at least one iteration without blocking
 		vte_terminal_get_cursor_position(VTE_TERMINAL(display), &column, &row);
 
-		if(show_index)
+		/* First byte on line */
+		if(column == 0)
 		{
-			if(column == 0)
-				/* First byte on line */
+			if(show_index)
 			{
 				sprintf(data, "%6d: ", total_bytes);
 				vte_terminal_feed(VTE_TERMINAL(display), data, strlen(data));
+			}
+			if (lastrow != row)
+			{
 				bytes = 0;
+				lastrow = row;
+			}
+			else
+			{
+				printf("### VTE glitch found\n"); fflush(stdout);
 			}
 		}
-		else
-		{
-			if(column == 0)
-				bytes = 0;
-		}
+
 
 		/* Print hexadecimal characters */
 		data[0] = 0;
 
-		while(bytes < bytes_per_line && i < size)
+		while((bytes < bytes_per_line) && (i < size))
 		{
 			gint avance=0;
 			gchar ascii[1];
@@ -633,17 +655,19 @@ void put_hexadecimal(gchar *string, guint size)
 
 			avance = (bytes_per_line - bytes) * 3 + bytes + 2;
 
-			/* Move forward */
-			sprintf(data_byte, "%c[%dC", 27, avance);
-			vte_terminal_feed(VTE_TERMINAL(display), data_byte, strlen(data_byte));
+			if (show_ascii) {
+				/* Move forward */
+				sprintf(data_byte, "%c[%dC", 27, avance);
+				vte_terminal_feed(VTE_TERMINAL(display), data_byte, strlen(data_byte));
 
-			/* Print ascii characters */
-			ascii[0] = (string[i] > 0x1F) ? string[i] : '.';
-			vte_terminal_feed(VTE_TERMINAL(display), ascii, 1);
+				/* Print ascii characters */
+				ascii[0] = (string[i] > 0x1F) ? string[i] : '.';
+				vte_terminal_feed(VTE_TERMINAL(display), ascii, 1);
 
-			/* Move backward */
-			sprintf(data_byte, "%c[%dD", 27, avance + 1);
-			vte_terminal_feed(VTE_TERMINAL(display), data_byte, strlen(data_byte));
+				/* Move backward */
+				sprintf(data_byte, "%c[%dD", 27, avance + 1);
+				vte_terminal_feed(VTE_TERMINAL(display), data_byte, strlen(data_byte));
+			}
 
 			if(bytes == bytes_per_line / 2 - 1)
 				vte_terminal_feed(VTE_TERMINAL(display), "- ", strlen("- "));
@@ -656,6 +680,7 @@ void put_hexadecimal(gchar *string, guint size)
 			{
 				vte_terminal_feed(VTE_TERMINAL(display), "\r\n", 2);
 				total_bytes += bytes;
+				bytes = 0;
 			}
 
 		}
