@@ -42,6 +42,7 @@ struct configuration_port
 	gint rs485_rts_time_before_transmit;
 	gint rs485_rts_time_after_transmit;
 	gchar car;             // caractere à attendre
+	gchar default_view;
 	gboolean echo;               // echo local
 	gboolean crlfauto;         // line feed auto
 };

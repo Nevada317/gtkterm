@@ -32,6 +32,8 @@
 #include <config.h>
 #include <glib/gi18n.h>
 
+extern struct configuration_port config;
+
 int main(int argc, char *argv[])
 {
 	gchar *message;
@@ -63,7 +65,7 @@ int main(int argc, char *argv[])
 
 	add_shortcuts();
 
-	set_view(ASCII_VIEW);
+	set_view(config.default_view);
 
 	gtk_main();
 

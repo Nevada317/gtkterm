@@ -53,6 +53,7 @@ void display_help(void)
 	i18n_printf(_("--rts_time_before <ms> or -x : for rs485, time in ms before transmit with rts on\n"));
 	i18n_printf(_("--rts_time_after <ms> or -y : for rs485, time in ms after transmit with rts on\n"));
 	i18n_printf(_("--echo or -e : switch on local echo\n"));
+	i18n_printf(_("--hex or -z : show HEX-view by default\n"));
 	i18n_printf("\n");
 }
 
@@ -66,6 +67,7 @@ int read_command_line(int argc, char **argv, gchar *configuration_to_read)
 		{"speed", 1, 0, 's'},
 		{"parity", 1, 0, 'a'},
 		{"stopbits", 1, 0, 't'},
+		{"hex", 0, 0, 'z'},
 		{"bits", 1, 0, 'b'},
 		{"file", 1, 0, 'f'},
 		{"port", 1, 0, 'p'},
@@ -85,7 +87,7 @@ int read_command_line(int argc, char **argv, gchar *configuration_to_read)
 
 	while(1)
 	{
-		c = getopt_long (argc, argv, "s:a:t:b:f:p:w:d:r:hec:x:y:", long_options, &option_index);
+		c = getopt_long (argc, argv, "s:a:t:zb:f:p:w:d:r:hec:x:y:", long_options, &option_index);
 
 		if(c == -1)
 			break;
@@ -109,6 +111,10 @@ int read_command_line(int argc, char **argv, gchar *configuration_to_read)
 
 		case 't':
 			config.stops = atoi(optarg);
+			break;
+
+		case 'z':
+			config.default_view = 1;
 			break;
 
 		case 'b':
